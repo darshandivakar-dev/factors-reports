@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Influ2 Campaign Experiment</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2129;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #6e40c9;
+    --accent2: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #e3702a;
+    --purple: #a371f7;
+    --t1: #1f6feb;
+    --t2: #d29922;
+    --t3: #3fb950;
+    --t4: #8b949e;
+    --sql: #a371f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #1a0533 0%, #0d1117 60%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .header-left h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+  .header-left p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .header-badge { background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; margin-top: 8px; display: inline-block; }
+  .header-meta { text-align: right; }
+  .header-meta .date { color: var(--muted); font-size: 12px; }
+  .header-meta .source { color: var(--accent2); font-size: 12px; margin-top: 4px; }
+
+  .container { padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+  /* KPI STRIP */
+  .kpi-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .kpi .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi .value { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+  .kpi .sub { font-size: 11px; color: var(--muted); }
+  .kpi.highlight { border-color: var(--accent); }
+  .kpi .value.blue { color: var(--accent2); }
+  .kpi .value.green { color: var(--green); }
+  .kpi .value.yellow { color: var(--yellow); }
+  .kpi .value.purple { color: var(--purple); }
+  .kpi .value.orange { color: var(--orange); }
+
+  /* EXPOSURE BANNER */
+  .exposure-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 32px;
+  }
+  .exposure-banner h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .exposure-bar-wrap { flex: 1; }
+  .exposure-bar { height: 12px; background: var(--surface2); border-radius: 6px; overflow: hidden; margin-top: 8px; }
+  .exposure-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 6px; transition: width 0.8s ease; }
+  .exposure-stat { text-align: center; min-width: 90px; }
+  .exposure-stat .num { font-size: 28px; font-weight: 700; }
+  .exposure-stat .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .exposure-stat .num.exposed { color: var(--accent2); }
+  .exposure-stat .num.not-exp { color: var(--muted); }
+  .exposure-divider { width: 1px; height: 60px; background: var(--border); }
+
+  /* SECTION TITLE */
+  .section-title { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* CHARTS ROW */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .chart-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 14px; color: var(--text); }
+  .chart-card canvas { max-height: 220px; }
+
+  /* CRM PANEL */
+  .crm-row { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin-bottom: 24px; }
+  .crm-stats { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .crm-stats h4 { font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+  .crm-stat-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .crm-stat-item:last-child { border-bottom: none; }
+  .crm-stat-item .lbl { color: var(--muted); font-size: 13px; }
+  .crm-stat-item .val { font-weight: 700; font-size: 16px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-sql    { background: rgba(163,113,247,0.2); color: var(--purple); border: 1px solid rgba(163,113,247,0.4); }
+  .badge-lead   { background: rgba(88,166,255,0.15); color: var(--accent2); border: 1px solid rgba(88,166,255,0.3); }
+  .badge-sub    { background: rgba(63,185,80,0.15);  color: var(--green);   border: 1px solid rgba(63,185,80,0.3); }
+  .badge-none   { background: rgba(139,148,158,0.15); color: var(--muted); border: 1px solid var(--border); }
+  .badge-t1 { background: rgba(31,111,235,0.2); color: var(--t1); border: 1px solid rgba(31,111,235,0.4); }
+  .badge-t2 { background: rgba(210,153,34,0.2); color: var(--t2); border: 1px solid rgba(210,153,34,0.4); }
+  .badge-t3 { background: rgba(63,185,80,0.2); color: var(--t3); border: 1px solid rgba(63,185,80,0.4); }
+  .badge-t4 { background: rgba(139,148,158,0.15); color: var(--t4); border: 1px solid var(--border); }
+  .badge-crm-yes { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .badge-crm-no  { background: rgba(139,148,158,0.1); color: var(--muted); border: 1px solid var(--border); }
+
+  /* CRM CONTACTS TABLE */
+  .crm-contacts { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; overflow: hidden; }
+  .crm-contacts h4 { font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+  .mini-table { width: 100%; border-collapse: collapse; }
+  .mini-table th { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  .mini-table td { padding: 8px 10px; border-bottom: 1px solid rgba(48,54,61,0.5); font-size: 12px; vertical-align: middle; }
+  .mini-table tr:last-child td { border-bottom: none; }
+  .mini-table tr:hover td { background: var(--surface2); }
+  .domain-pill { background: var(--surface2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 11px; color: var(--accent2); }
+
+  /* TIER CARDS */
+  .tier-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .tier-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .tier-card.t1 { border-top: 3px solid var(--t1); }
+  .tier-card.t2 { border-top: 3px solid var(--t2); }
+  .tier-card.t3 { border-top: 3px solid var(--t3); }
+  .tier-card.t4 { border-top: 3px solid var(--t4); }
+  .tier-card .tier-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .tier-card .tier-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tier-card.t1 .tier-name { color: var(--t1); }
+  .tier-card.t2 .tier-name { color: var(--t2); }
+  .tier-card.t3 .tier-name { color: var(--t3); }
+  .tier-card.t4 .tier-name { color: var(--t4); }
+  .tier-card .tier-count { font-size: 28px; font-weight: 700; }
+  .tier-card .tier-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .tier-card .tier-crm { font-size: 11px; color: var(--green); margin-top: 8px; }
+  .tier-card .tier-domains { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .tier-domain { font-size: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; color: var(--muted); }
+  .tier-domain.has-crm { border-color: rgba(88,166,255,0.4); color: var(--accent2); }
+  .tier-domain.has-sql  { border-color: rgba(163,113,247,0.5); color: var(--purple); }
+  .tier-domain.has-session { border-color: rgba(31,111,235,0.4); color: var(--t1); }
+
+  /* MAIN TABLE */
+  .table-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
+  .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .table-header h4 { font-size: 14px; font-weight: 600; }
+  .filter-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 4px 12px; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+  .filter-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .filter-btn.active { background: rgba(88,166,255,0.15); border-color: var(--accent2); color: var(--accent2); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; cursor: pointer; white-space: nowrap; user-select: none; }
+  thead th:hover { color: var(--text); }
+  tbody tr:hover td { background: var(--surface2); }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid rgba(48,54,61,0.5); vertical-align: middle; font-size: 12px; }
+  tbody tr:last-child td { border-bottom: none; }
+  .bar-cell { display: flex; align-items: center; gap: 8px; }
+  .bar-mini { height: 6px; border-radius: 3px; min-width: 2px; }
+  .bar-impr { background: var(--accent); }
+  .bar-click { background: var(--yellow); }
+  .bar-sess { background: var(--t1); }
+  .sort-indicator { display: inline-block; margin-left: 4px; opacity: 0.5; }
+
+  /* OUTREACH RECO COL */
+  .reco { font-size: 11px; line-height: 1.4; }
+
+  /* INSIGHT BOX */
+  .insight-box { background: linear-gradient(135deg, rgba(110,64,201,0.15), rgba(88,166,255,0.08)); border: 1px solid rgba(110,64,201,0.4); border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 14px; }
+  .insight-icon { font-size: 22px; margin-top: 2px; }
+  .insight-text h4 { font-size: 14px; font-weight: 700; color: var(--purple); margin-bottom: 4px; }
+  .insight-text p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .insight-text strong { color: var(--text); }
+
+  /* SENIORITY */
+  .charts-row-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+  @media (max-width: 1200px) {
+    .kpi-strip { grid-template-columns: repeat(4, 1fr); }
+    .charts-row { grid-template-columns: 1fr 1fr; }
+    .tier-cards { grid-template-columns: 1fr 1fr; }
+    .crm-row { grid-template-columns: 1fr; }
+    .charts-row-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Influ2 Campaign Experiment</h1>
+    <p>ICP ABM Account Exposure Analysis — LinkedIn Paid Impressions × HubSpot CRM Cross-Reference</p>
+    <span class="header-badge">Last 30 Days · Factors.ai</span>
+  </div>
+  <div class="header-meta">
+    <div class="date">Report Date: March 13, 2026</div>
+    <div class="source">Sources: Influ2 · LinkedIn · Factors Funnel · HubSpot CRM</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="label">Total ICP Accounts</div>
+      <div class="value blue">1,588</div>
+      <div class="sub">Unique domains in target list</div>
+    </div>
+    <div class="kpi highlight">
+      <div class="label">Exposed Accounts</div>
+      <div class="value" style="color:var(--accent)">46</div>
+      <div class="sub">Saw LinkedIn impressions (2.9%)</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Not Yet Exposed</div>
+      <div class="value" style="color:var(--muted)">1,542</div>
+      <div class="sub">No impressions recorded</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Has Website Session</div>
+      <div class="value blue">4</div>
+      <div class="sub">Accounts reached website</div>
+    </div>
+    <div class="kpi">
+      <div class="label">In HubSpot CRM</div>
+      <div class="value green">16</div>
+      <div class="sub">Contacts matched in CRM</div>
+    </div>
+    <div class="kpi">
+      <div class="label">SQL / Open Deal</div>
+      <div class="value purple">1</div>
+      <div class="sub">Labelbox — most advanced</div>
+    </div>
+    <div class="kpi">
+      <div class="label">CRM Stage</div>
+      <div class="value yellow">Lead</div>
+      <div class="sub">All other CRM contacts</div>
+    </div>
+  </div>
+
+  <!-- EXPOSURE BANNER -->
+  <div class="exposure-banner">
+    <div class="exposure-stat">
+      <div class="num exposed">46</div>
+      <div class="lbl">Accounts Exposed</div>
+    </div>
+    <div class="exposure-divider"></div>
+    <div class="exposure-bar-wrap">
+      <h3>Campaign Reach vs ICP Universe (1,588 total accounts)</h3>
+      <div class="exposure-bar">
+        <div class="exposure-bar-fill" style="width:2.9%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted)">
+        <span>▓ Exposed: 46 accounts (2.9%)</span>
+        <span>░ Not Exposed: 1,542 accounts (97.1%)</span>
+      </div>
+    </div>
+    <div class="exposure-divider"></div>
+    <div class="exposure-stat">
+      <div class="num not-exp">1,542</div>
+      <div class="lbl">Not Yet Exposed</div>
+    </div>
+  </div>
+
+  <!-- INSIGHT BOX -->
+  <div class="insight-box">
+    <div class="insight-icon">🔍</div>
+    <div class="insight-text">
+      <h4>CRM Cross-Reference Finding</h4>
+      <p>Of the <strong>46 exposed accounts</strong>, <strong>16 contacts</strong> already exist in HubSpot CRM — all at <strong>Lead stage</strong>. One account, <strong>Labelbox</strong>, is at <strong>SQL (Open Deal)</strong> status, making it the highest-priority follow-up. SafetyChain has a legacy <strong>Subscriber</strong> record. The remaining <strong>30 exposed accounts have no CRM record</strong> — representing a gap in pipeline visibility and an immediate outreach opportunity.</p>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="section-title">Campaign Exposure Analytics</div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <h4>Top 20 Exposed Accounts by Impressions</h4>
+      <canvas id="impChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h4>Funnel Drop-Off</h4>
+      <canvas id="funnelChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h4>Tier Distribution</h4>
+      <canvas id="tierDonut"></canvas>
+    </div>
+  </div>
+
+  <!-- CRM ROW -->
+  <div class="section-title">HubSpot CRM Cross-Reference</div>
+  <div class="crm-row">
+    <div class="crm-stats">
+      <h4>CRM Coverage Summary</h4>
+      <div class="crm-stat-item">
+        <span class="lbl">Exposed accounts in CRM</span>
+        <span class="val green">16 <span style="font-size:12px;color:var(--muted);font-weight:400">/ 46</span></span>
+      </div>
+      <div class="crm-stat-item">
+        <span class="lbl">Exposed accounts NOT in CRM</span>
+        <span class="val" style="color:var(--muted)">30</span>
+      </div>
+      <div class="crm-stat-item">
+        <span class="lbl">SQL / Open Deal</span>
+        <span class="val purple">1 <span style="font-size:11px;color:var(--muted);font-weight:400">(Labelbox)</span></span>
+      </div>
+      <div class="crm-stat-item">
+        <span class="lbl">Lead stage</span>
+        <span class="val" style="color:var(--accent2)">14</span>
+      </div>
+      <div class="crm-stat-item">
+        <span class="lbl">Subscriber stage</span>
+        <span class="val green">1 <span style="font-size:11px;color:var(--muted);font-weight:400">(SafetyChain)</span></span>
+      </div>
+      <div class="crm-stat-item">
+        <span class="lbl">Open Deals found</span>
+        <span class="val" style="color:var(--muted)">0</span>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:rgba(163,113,247,0.1);border:1px solid rgba(163,113,247,0.3);border-radius:8px;">
+        <div style="font-size:11px;color:var(--purple);font-weight:600;margin-bottom:4px;">⚡ Priority Action</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5;">Labelbox (SQL + saw website session) should receive immediate personalized outreach. 30 exposed accounts with no CRM record need to be created as leads.</div>
+      </div>
+    </div>
+
+    <div class="crm-contacts">
+      <h4>Contacts Found in HubSpot CRM (16 of 46 Exposed Accounts)</h4>
+      <div style="overflow-x:auto">
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>CRM Contact</th>
+            <th>ICP Contact / Title</th>
+            <th>CRM Stage</th>
+            <th>Tier</th>
+            <th>Impressions</th>
+          </tr>
+        </thead>
+        <tbody id="crmTableBody"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIER CARDS -->
+  <div class="section-title">Outreach Priority Tiers</div>
+  <div class="tier-cards">
+    <div class="tier-card t1">
+      <div class="tier-header">
+        <div>
+          <div class="tier-name">Tier 1 — Has Session</div>
+          <div class="tier-desc">Reached the website</div>
+        </div>
+        <div class="tier-count">4</div>
+      </div>
+      <div class="tier-crm">1 in CRM (Litera · Lead) · 1 SQL (Labelbox)</div>
+      <div class="tier-domains" id="t1-domains"></div>
+    </div>
+    <div class="tier-card t2">
+      <div class="tier-header">
+        <div>
+          <div class="tier-name">Tier 2 — Hot (100+ impr)</div>
+          <div class="tier-desc">High exposure, no session yet</div>
+        </div>
+        <div class="tier-count">9</div>
+      </div>
+      <div class="tier-crm">4 in CRM (Sysdig, Prove, Checkr, Zone&Co)</div>
+      <div class="tier-domains" id="t2-domains"></div>
+    </div>
+    <div class="tier-card t3">
+      <div class="tier-header">
+        <div>
+          <div class="tier-name">Tier 3 — Warm (50–99)</div>
+          <div class="tier-desc">Mid exposure, building momentum</div>
+        </div>
+        <div class="tier-count">15</div>
+      </div>
+      <div class="tier-crm">6 in CRM (rfgen, CloudZero, OpenBrand, SafetyChain, Mend, Snowplow, NucleusSec)</div>
+      <div class="tier-domains" id="t3-domains"></div>
+    </div>
+    <div class="tier-card t4">
+      <div class="tier-header">
+        <div>
+          <div class="tier-name">Tier 4 — Early (&lt;50 impr)</div>
+          <div class="tier-desc">Low exposure, continue running</div>
+        </div>
+        <div class="tier-count">18</div>
+      </div>
+      <div class="tier-crm">5 in CRM (Credo AI, RPI Consultants, Gravyty, Centage, Mage)</div>
+      <div class="tier-domains" id="t4-domains"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="charts-row-2">
+    <div class="chart-card">
+      <h4>CRM Stage by Tier</h4>
+      <canvas id="crmTierChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h4>CRM Coverage</h4>
+      <canvas id="crmDonut"></canvas>
+    </div>
+  </div>
+
+  <!-- MAIN ACCOUNT TABLE -->
+  <div class="section-title">All Exposed Accounts</div>
+  <div class="table-section">
+    <div class="table-header">
+      <h4>Account Outreach Intelligence — 46 Accounts</h4>
+      <div class="filter-buttons">
+        <button class="filter-btn active" onclick="filterTable('all', this)">All (46)</button>
+        <button class="filter-btn" onclick="filterTable('t1', this)">Has Session (4)</button>
+        <button class="filter-btn" onclick="filterTable('t2', this)">Hot 100+ (9)</button>
+        <button class="filter-btn" onclick="filterTable('t3', this)">Warm 50–99 (15)</button>
+        <button class="filter-btn" onclick="filterTable('t4', this)">Early &lt;50 (18)</button>
+        <button class="filter-btn" onclick="filterTable('crm', this)">In CRM (16)</button>
+        <button class="filter-btn" onclick="filterTable('nocrm', this)">Not in CRM (30)</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortTable('domain')">Domain <span class="sort-indicator">↕</span></th>
+            <th onclick="sortTable('impressions')">Impressions <span class="sort-indicator">↕</span></th>
+            <th onclick="sortTable('clicks')">Clicks <span class="sort-indicator">↕</span></th>
+            <th onclick="sortTable('sessions')">Sessions <span class="sort-indicator">↕</span></th>
+            <th onclick="sortTable('tier')">Tier <span class="sort-indicator">↕</span></th>
+            <th>ICP Contact</th>
+            <th>Title</th>
+            <th onclick="sortTable('crm_stage')">CRM Stage <span class="sort-indicator">↕</span></th>
+            <th>Recommended Action</th>
+          </tr>
+        </thead>
+        <tbody id="mainTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// =================== DATA ===================
+const DATA = [
+  {domain:"labelbox.com",contact:"Derek Mok",title:"VP of Marketing",email:"dmok@labelbox.com",impressions:206,clicks:0,sessions:1,tier:"Tier 1 - Has Session",in_crm:false,crm_contact:"",crm_stage:"SQL – Open Deal"},
+  {domain:"litera.com",contact:"Cynthia Gumbert",title:"Chief Marketing Officer",email:"cynthia.gumbert@litera.com",impressions:137,clicks:0,sessions:1,tier:"Tier 1 - Has Session",in_crm:true,crm_contact:"Cynthia Gumbert",crm_stage:"Lead"},
+  {domain:"aderant.com",contact:"Stephanie Hunicke",title:"VP of Marketing",email:"stephanie.hunicke@aderant.com",impressions:104,clicks:0,sessions:1,tier:"Tier 1 - Has Session",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"clinisys.com",contact:"Michele Schicchi",title:"VP Marketing",email:"michele.schicchi@clinisys.com",impressions:45,clicks:0,sessions:1,tier:"Tier 1 - Has Session",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"restaurant365.com",contact:"Kristin Fairchild",title:"VP of Marketing",email:"kfairchild@restaurant365.com",impressions:200,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"sysdig.com",contact:"Shanta Kohli",title:"Chief Marketing Officer",email:"shanta.kohli@sysdig.com",impressions:189,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:true,crm_contact:"Shanta Kohli",crm_stage:"Lead"},
+  {domain:"prove.com",contact:"Ashley Kiolbasa",title:"Chief Marketing Officer",email:"ashley.kiolbasa@prove.com",impressions:167,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:true,crm_contact:"Ashley Kiolbasa",crm_stage:"Lead"},
+  {domain:"optimizerx.com",contact:"Natasha Zgorski",title:"VP Marketing",email:"nzgorski@optimizerx.com",impressions:147,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"backblaze.com",contact:"Kim Meerschaert",title:"VP of Marketing",email:"kmeerschaert@backblaze.com",impressions:136,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"checkr.com",contact:"Kristen D.",title:"Solutions Marketing Lead",email:"kristen@checkr.com",impressions:113,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:true,crm_contact:"Kristen D.",crm_stage:"Lead"},
+  {domain:"getweave.com",contact:"Chris Baird",title:"Director of Marketing",email:"chris.baird@getweave.com",impressions:105,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"starburst.io",contact:"Lisa Luscap",title:"VP of Marketing",email:"lisa.luscap@starburst.io",impressions:102,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"zoneandco.com",contact:"Jessica Garrett",title:"Director of Marketing",email:"jgarrett@zoneandco.com",impressions:100,clicks:0,sessions:0,tier:"Tier 2 - Hot",in_crm:true,crm_contact:"Jessica Garrett",crm_stage:"Lead"},
+  {domain:"rfgen.com",contact:"Marian Watkins",title:"VP of Marketing",email:"mwatkins@rfgen.com",impressions:99,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:true,crm_contact:"Marian Watkins",crm_stage:"Lead"},
+  {domain:"tierpoint.com",contact:"Andrew Baird",title:"VP of Marketing",email:"andrew.baird@tierpoint.com",impressions:98,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"intelichart.com",contact:"Courtney Clark",title:"VP of Marketing",email:"cclark@intelichart.com",impressions:93,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"cloudzero.com",contact:"Michelle Dufty",title:"Chief Marketing Officer",email:"michelle.dufty@cloudzero.com",impressions:90,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:true,crm_contact:"Michelle Dufty",crm_stage:"Lead"},
+  {domain:"openbrand.com",contact:"Sidney Waterfall",title:"VP of Marketing",email:"sidney@openbrand.com",impressions:90,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:true,crm_contact:"Sidney Waterfall",crm_stage:"Lead"},
+  {domain:"meter.com",contact:"Sarah Dary",title:"Head of Marketing",email:"sarah@meter.com",impressions:90,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"safetychain.com",contact:"Natasha Kanell",title:"VP of Marketing",email:"nkanell@safetychain.com",impressions:89,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Subscriber"},
+  {domain:"grin.co",contact:"Olivia McNaughten",title:"VP of Marketing",email:"olivia.mcnaughten@grin.co",impressions:87,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"mend.io",contact:"Stephanie Broyles",title:"Chief Marketing Officer",email:"stephanie.broyles@mend.io",impressions:76,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:true,crm_contact:"Stephanie Broyles",crm_stage:"Lead"},
+  {domain:"nbs-us.com",contact:"Sean Barbera",title:"VP of Marketing",email:"sean.barbera@nbs-us.com",impressions:75,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"snowplow.io",contact:"Michele Szabocsik",title:"VP of Marketing",email:"michele.szabocsik@snowplow.io",impressions:64,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:true,crm_contact:"Michele Szabocsik",crm_stage:"Lead"},
+  {domain:"meadowfi.com",contact:"",title:"",email:"",impressions:64,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"tumeke.io",contact:"Donovan",title:"",email:"donovan@tumeke.io",impressions:54,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"opus.pro",contact:"Parker",title:"VP of Marketing",email:"parker@opus.pro",impressions:53,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"nucleussec.com",contact:"Lexy Sheets",title:"Public Sector and Channel Marketing Director",email:"lsheets@nucleussec.com",impressions:52,clicks:0,sessions:0,tier:"Tier 3 - Warm",in_crm:true,crm_contact:"Lexy Sheets",crm_stage:"Lead"},
+  {domain:"adentro.com",contact:"TM Ui",title:"",email:"tmui@adentro.com",impressions:48,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"coefficient.io",contact:"Hannah",title:"Head of Marketing",email:"hannah@coefficient.io",impressions:47,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"credo.ai",contact:"Tara Shankar Jana",title:"Head of Growth",email:"tj@credo.ai",impressions:46,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:true,crm_contact:"Tara Shankar Jana",crm_stage:"Lead"},
+  {domain:"medrio.com",contact:"David Perotti",title:"VP of Marketing",email:"dperotti@medrio.com",impressions:40,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"rpic.com",contact:"Michaela Fallon",title:"Director of Marketing",email:"mfallon@rpic.com",impressions:38,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:true,crm_contact:"Michaela Fallon",crm_stage:"Lead"},
+  {domain:"fathom.ai",contact:"Brittany Bingham",title:"Head of Marketing",email:"brittany.bingham@fathom.video",impressions:36,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"wherescape.com",contact:"Taylor Blease",title:"",email:"taylor.blease@wherescape.com",impressions:36,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"managementcontrols.com",contact:"",title:"",email:"",impressions:32,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"runway.com",contact:"Jeff Tucker",title:"CMO",email:"jeff.tucker@runway.com",impressions:28,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"ema-eda.com",contact:"Chris B",title:"",email:"chrisb@ema-eda.com",impressions:20,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"relocity.com",contact:"Quinn Killick",title:"",email:"quinn.killick@relocity.com",impressions:19,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"stonebranch.com",contact:"Scott Davis",title:"VP of Marketing",email:"scott.davis@stonebranch.com",impressions:16,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"gravyty.com",contact:"Vicki Bouwkamp",title:"Customer Marketing Director",email:"vicki.bouwkamp@gravyty.com",impressions:14,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:true,crm_contact:"Vicki Bouwkamp",crm_stage:"Lead"},
+  {domain:"centage.com",contact:"Andrew Fear",title:"VP of Marketing",email:"andrew.fear@centage.com",impressions:12,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:true,crm_contact:"Andrew Fear",crm_stage:"Lead"},
+  {domain:"kalibrate.com",contact:"Courtney Hall",title:"VP of Marketing",email:"courtney.hall@kalibrate.com",impressions:9,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"mage.ai",contact:"Thomas Chung",title:"Head of Growth",email:"thomas@mage.ai",impressions:4,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:true,crm_contact:"Thomas Chung",crm_stage:"Lead"},
+  {domain:"altrata.com",contact:"",title:"",email:"",impressions:0,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+  {domain:"allego.com",contact:"",title:"",email:"",impressions:0,clicks:0,sessions:0,tier:"Tier 4 - Early",in_crm:false,crm_contact:"",crm_stage:"Not in CRM"},
+];
+
+// =================== TIER DOMAIN PILLS ===================
+function populateTierDomains() {
+  const tierMap = {'Tier 1 - Has Session':'t1','Tier 2 - Hot':'t2','Tier 3 - Warm':'t3','Tier 4 - Early':'t4'};
+  Object.entries(tierMap).forEach(([tier, id]) => {
+    const el = document.getElementById(id+'-domains');
+    DATA.filter(r => r.tier === tier).forEach(r => {
+      const d = document.createElement('span');
+      d.className = 'tier-domain' + (r.crm_stage === 'SQL – Open Deal' ? ' has-sql' : r.sessions > 0 ? ' has-session' : r.in_crm ? ' has-crm' : '');
+      d.textContent = r.domain.replace('.com','').replace('.io','').replace('.ai','').replace('.co','').replace('.video','');
+      el.appendChild(d);
+    });
+  });
+}
+
+// =================== CRM TABLE ===================
+function buildCRMTable() {
+  const tbody = document.getElementById('crmTableBody');
+  const crmData = DATA.filter(r => r.in_crm || r.crm_stage === 'SQL – Open Deal' || r.crm_stage === 'Subscriber');
+  crmData.sort((a,b) => b.impressions - a.impressions);
+  crmData.forEach(r => {
+    const stageClass = r.crm_stage === 'SQL – Open Deal' ? 'badge-sql' : r.crm_stage === 'Lead' ? 'badge-lead' : r.crm_stage === 'Subscriber' ? 'badge-sub' : 'badge-none';
+    const tierClass = r.tier.includes('1') ? 'badge-t1' : r.tier.includes('2') ? 'badge-t2' : r.tier.includes('3') ? 'badge-t3' : 'badge-t4';
+    tbody.innerHTML += `<tr>
+      <td><span class="domain-pill">${r.domain}</span></td>
+      <td style="color:var(--text);font-size:12px">${r.crm_contact || '—'}</td>
+      <td style="color:var(--muted)">${r.contact || '—'}<br><span style="font-size:10px;color:var(--muted)">${r.title.substring(0,35) || ''}</span></td>
+      <td><span class="badge ${stageClass}">${r.crm_stage}</span></td>
+      <td><span class="badge ${tierClass}">${r.tier.split('-')[1]?.trim() || r.tier}</span></td>
+      <td><div class="bar-cell"><div class="bar-mini bar-impr" style="width:${Math.min(r.impressions/2.1,100)}px"></div>${r.impressions}</div></td>
+    </tr>`;
+  });
+}
+
+// =================== MAIN TABLE ===================
+let currentFilter = 'all';
+let sortCol = 'impressions';
+let sortAsc = false;
+
+function getFilteredData() {
+  let d = [...DATA];
+  if (currentFilter === 't1') d = d.filter(r => r.tier === 'Tier 1 - Has Session');
+  else if (currentFilter === 't2') d = d.filter(r => r.tier === 'Tier 2 - Hot');
+  else if (currentFilter === 't3') d = d.filter(r => r.tier === 'Tier 3 - Warm');
+  else if (currentFilter === 't4') d = d.filter(r => r.tier === 'Tier 4 - Early');
+  else if (currentFilter === 'crm') d = d.filter(r => r.in_crm || r.crm_stage !== 'Not in CRM');
+  else if (currentFilter === 'nocrm') d = d.filter(r => !r.in_crm && r.crm_stage === 'Not in CRM');
+  d.sort((a,b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+  return d;
+}
+
+function getAction(r) {
+  if (r.crm_stage === 'SQL – Open Deal') return '<span style="color:var(--purple)">🎯 Priority — SQL exists, nurture to meeting</span>';
+  if (r.sessions > 0 && r.in_crm) return '<span style="color:var(--t1)">📞 Warm call — visited site + in CRM</span>';
+  if (r.sessions > 0) return '<span style="color:var(--t1)">🔔 Create CRM record — visited site</span>';
+  if (r.tier === 'Tier 2 - Hot' && r.in_crm) return '<span style="color:var(--yellow)">✉️ Personalized email — high exposure + in CRM</span>';
+  if (r.tier === 'Tier 2 - Hot') return '<span style="color:var(--yellow)">🆕 Create lead + outreach — high exposure</span>';
+  if (r.tier === 'Tier 3 - Warm' && r.in_crm) return '<span style="color:var(--green)">📧 Add to nurture sequence</span>';
+  if (r.tier === 'Tier 3 - Warm') return '<span style="color:var(--green)">🆕 Create lead + add to nurture</span>';
+  if (r.crm_stage === 'Subscriber') return '<span style="color:var(--green)">🔄 Re-engage subscriber</span>';
+  return '<span style="color:var(--muted)">⏳ Continue exposure — monitor</span>';
+}
+
+function renderMainTable() {
+  const tbody = document.getElementById('mainTableBody');
+  tbody.innerHTML = '';
+  const maxI = Math.max(...DATA.map(d => d.impressions));
+  getFilteredData().forEach(r => {
+    const tierClass = r.tier.includes('1')?'badge-t1':r.tier.includes('2')?'badge-t2':r.tier.includes('3')?'badge-t3':'badge-t4';
+    const crmClass = r.in_crm ? 'badge-crm-yes' : r.crm_stage === 'SQL – Open Deal' ? 'badge-sql' : r.crm_stage === 'Subscriber' ? 'badge-sub' : 'badge-crm-no';
+    const stageClass = r.crm_stage === 'SQL – Open Deal' ? 'badge-sql' : r.crm_stage === 'Lead' ? 'badge-lead' : r.crm_stage === 'Subscriber' ? 'badge-sub' : 'badge-crm-no';
+    const tierLabel = r.tier.replace('Tier 1 - ','T1·').replace('Tier 2 - ','T2·').replace('Tier 3 - ','T3·').replace('Tier 4 - ','T4·');
+    tbody.innerHTML += `<tr>
+      <td><span class="domain-pill">${r.domain}</span></td>
+      <td><div class="bar-cell"><div class="bar-mini bar-impr" style="width:${Math.round((r.impressions/maxI)*80)+2}px"></div><span>${r.impressions}</span></div></td>
+      <td>${r.clicks}</td>
+      <td>${r.sessions > 0 ? '<span style="color:var(--t1);font-weight:700">'+r.sessions+'</span>' : '0'}</td>
+      <td><span class="badge ${tierClass}">${tierLabel}</span></td>
+      <td style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.contact || '—'}</td>
+      <td style="max-width:140px;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis">${r.title.substring(0,40)||'—'}</td>
+      <td><span class="badge ${stageClass}">${r.crm_stage}</span></td>
+      <td class="reco">${getAction(r)}</td>
+    </tr>`;
+  });
+}
+
+function filterTable(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMainTable();
+}
+
+function sortTable(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = false; }
+  renderMainTable();
+}
+
+// =================== CHARTS ===================
+const top20 = DATA.filter(r => r.impressions > 0).slice(0,20);
+const tierColors = {
+  'Tier 1 - Has Session': 'rgba(31,111,235,0.85)',
+  'Tier 2 - Hot': 'rgba(210,153,34,0.85)',
+  'Tier 3 - Warm': 'rgba(63,185,80,0.85)',
+  'Tier 4 - Early': 'rgba(139,148,158,0.7)'
+};
+
+// Impressions bar
+new Chart(document.getElementById('impChart'), {
+  type: 'bar',
+  data: {
+    labels: top20.map(r => r.domain.replace('.com','').replace('.io','').replace('.ai','').replace('.co','')),
+    datasets: [{
+      data: top20.map(r => r.impressions),
+      backgroundColor: top20.map(r => tierColors[r.tier]),
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} impressions`}}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8b949e',font:{size:10}}},
+      y:{grid:{display:false},ticks:{color:'#e6edf3',font:{size:10}}}
+    }
+  }
+});
+
+// Funnel
+new Chart(document.getElementById('funnelChart'), {
+  type:'bar',
+  data:{
+    labels:['Saw Impressions','Had Clicks','Website Session'],
+    datasets:[{
+      data:[46,0,4],
+      backgroundColor:['rgba(110,64,201,0.7)','rgba(210,153,34,0.7)','rgba(31,111,235,0.7)'],
+      borderRadius:6,
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} accounts`}}},
+    scales:{
+      x:{grid:{display:false},ticks:{color:'#8b949e'}},
+      y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8b949e'}}
+    }
+  }
+});
+
+// Tier donut
+new Chart(document.getElementById('tierDonut'), {
+  type:'doughnut',
+  data:{
+    labels:['Tier 1·Session (4)','Tier 2·Hot (9)','Tier 3·Warm (15)','Tier 4·Early (18)'],
+    datasets:[{
+      data:[4,9,15,18],
+      backgroundColor:['rgba(31,111,235,0.8)','rgba(210,153,34,0.8)','rgba(63,185,80,0.8)','rgba(139,148,158,0.6)'],
+      borderColor:'#161b22',borderWidth:2
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,cutout:'60%',
+    plugins:{legend:{position:'bottom',labels:{color:'#8b949e',font:{size:10},boxWidth:10,padding:8}}}
+  }
+});
+
+// CRM by tier stacked bar
+new Chart(document.getElementById('crmTierChart'), {
+  type:'bar',
+  data:{
+    labels:['Tier 1·Session','Tier 2·Hot','Tier 3·Warm','Tier 4·Early'],
+    datasets:[
+      {label:'In CRM',data:[2,4,6,5],backgroundColor:'rgba(88,166,255,0.7)',borderRadius:4},
+      {label:'Not in CRM',data:[2,5,9,13],backgroundColor:'rgba(48,54,61,0.7)',borderRadius:4},
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{color:'#8b949e',font:{size:11},boxWidth:10}}},
+    scales:{
+      x:{stacked:true,grid:{display:false},ticks:{color:'#8b949e'}},
+      y:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8b949e'}}
+    }
+  }
+});
+
+// CRM coverage donut
+new Chart(document.getElementById('crmDonut'), {
+  type:'doughnut',
+  data:{
+    labels:['In CRM (16)','Not in CRM (30)'],
+    datasets:[{
+      data:[16,30],
+      backgroundColor:['rgba(63,185,80,0.8)','rgba(48,54,61,0.7)'],
+      borderColor:'#161b22',borderWidth:2
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,cutout:'65%',
+    plugins:{
+      legend:{position:'bottom',labels:{color:'#8b949e',font:{size:11},boxWidth:10,padding:10}},
+      tooltip:{callbacks:{label:c=>`${c.label}: ${Math.round(c.raw/46*100)}% of exposed`}}
+    }
+  }
+});
+
+// =================== INIT ===================
+populateTierDomains();
+buildCRMTable();
+renderMainTable();
+</script>
+</body>
+</html>
